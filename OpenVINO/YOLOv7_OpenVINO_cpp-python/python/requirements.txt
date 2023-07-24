@@ -1,4 +1,0 @@
-#openvino
-argparse
-numpy
-opencv-python
