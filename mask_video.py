@@ -22,13 +22,41 @@ from mat4py import loadmat
 
 import time
 
-import encryption
-
-import time
-
 import gradio as gr
 
-def encrypt_image( image, mask_locs ):    
+import argparse
+
+def loadTable():
+    table_path = './Key_table'
+    Table_R,Table_G,Table_B = [],[],[]
+    # Table_Name = ['Table_R.mat', 'Table_G.mat', 'Table_B.mat']
+    # Alphabet = ['A','B','C']
+    
+    # load Table and Encrypt
+    Path = os.path.join(table_path,'Table_R.mat') # Table Name
+    Table_R = loadmat(Path) # load Table
+    Table_R = Table_R['A'] # Table list
+    Table_R = Table_R[1] # Take Encrypted pixel value
+    
+    Path = os.path.join(table_path,'Table_G.mat') # Table Name
+    Table_G = loadmat(Path) # load Table
+    Table_G = Table_G['B'] # Table list
+    Table_G = Table_G[1] # Take Encrypted pixel value
+    
+    Path = os.path.join(table_path,'Table_B.mat') # Table Name
+    Table_B = loadmat(Path) # load Table
+    Table_B = Table_B['C'] # Table list
+    Table_B = Table_B[1] # Take Encrypted pixel value
+    
+    return Table_R, Table_G, Table_B
+
+def encrypt_image( image , mask_locs , T_R, T_G , T_B ):
+    '''
+    加密影像
+    parameter : image : 要加密的影像 ; mask_locs : 需要加密的pixel位置 ; T_R,T_G,T_B : 要使用的加密對照表
+    Output : img : 加密後的影像
+    '''
+    
     # dateTime
     now = datetime.datetime.now(tz = datetime.timezone(datetime.timedelta(hours=8)))
     today = datetime.date.today()
@@ -39,110 +67,65 @@ def encrypt_image( image, mask_locs ):
     
     # read image
     img = image
-    
-    # Path
-    # root_dir = './'
-    table_path = './Key_table'
-    Table_Name = ['Table_R.mat', 'Table_G.mat', 'Table_B.mat']
-    Alphabet = ['A','B','C']
-    Table_R,Table_G,Table_B = [],[],[]
-    save_path_img = os.path.join('./output/',str(today))
-    save_path_mask = os.path.join('./mask_locs/',str(today))
-    
-    
-    # load Table and Encrypt
-    Path = os.path.join(table_path,Table_Name[0]) # Table Name
-    Table_R = loadmat(Path) # load Table
-    Table_R = Table_R[Alphabet[0]] # Table list
-    Table_R = Table_R[1] # Take Encrypted pixel value
-    
-    Path = os.path.join(table_path,Table_Name[1]) # Table Name
-    Table_G = loadmat(Path) # load Table
-    Table_G = Table_G[Alphabet[1]] # Table list
-    Table_G = Table_G[1] # Take Encrypted pixel value
-    
-    Path = os.path.join(table_path,Table_Name[2]) # Table Name
-    Table_B = loadmat(Path) # load Table
-    Table_B = Table_B[Alphabet[2]] # Table list
-    Table_B = Table_B[1] # Take Encrypted pixel value
+    save_img_dir = os.path.join(r'C:\Users\User\Downloads\yolov7\output',str(today))
+    save_mask_dir = os.path.join(r'C:\Users\User\Downloads\yolov7\mask_locs',str(today))
     
     # 對像素質加密
     for mask_ind in range(len(mask_locs)):
         x , y = mask_locs[mask_ind][0] , mask_locs[mask_ind][1] # 第 mask_ind 個的mask location
         
         # 將像素值根據Table加密 dim : R,G,B
-        img[x][y][0] = Table_R[img[x][y][0] % 256]
-        img[x][y][1] = Table_G[img[x][y][1] % 256]
-        img[x][y][2] = Table_B[img[x][y][2] % 256]
+        img[x][y][0] = T_R[img[x][y][0] % 256]
+        img[x][y][1] = T_G[img[x][y][1] % 256]
+        img[x][y][2] = T_B[img[x][y][2] % 256]
         
     # End of for loop
     
     # 檢查有無當下日期資料夾 (img)
-    if not os.path.exists(save_path_img): 
-        os.mkdir(save_path_img)
+    if not os.path.exists(save_img_dir): 
+        os.mkdir(save_img_dir)
         
     # 檢查有無當下時間(hr)資料夾 (img)
-    save_path_img = os.path.join(save_path_img,hour)
-    if not os.path.exists(save_path_img): 
-        os.mkdir(save_path_img)
+    save_img_dir = os.path.join(save_img_dir,hour)
+    if not os.path.exists(save_img_dir): 
+        os.mkdir(save_img_dir)
         
     # 檢查有無當下時間(min)資料夾 (img)
-    save_path_img = os.path.join(save_path_img,minute)
-    if not os.path.exists(save_path_img): 
-        os.mkdir(save_path_img)
+    save_img_dir = os.path.join(save_img_dir,minute)
+    if not os.path.exists(save_img_dir): 
+        os.mkdir(save_img_dir)
     
     # 檢查有無當下日期資料夾 (mask locs)
-    if not os.path.exists(save_path_mask): 
-        os.mkdir(save_path_mask)
+    if not os.path.exists(save_mask_dir): 
+        os.mkdir(save_mask_dir)
     
     # 檢查有無當下時間(hr)資料夾 (mask locs)
-    save_path_mask = os.path.join(save_path_mask,hour)
-    if not os.path.exists(save_path_mask): 
-        os.mkdir(save_path_mask)
+    save_mask_dir = os.path.join(save_mask_dir,hour)
+    if not os.path.exists(save_mask_dir): 
+        os.mkdir(save_mask_dir)
         
     # 檢查有無當下時間(min)資料夾 (mask locs)
-    save_path_mask = os.path.join(save_path_mask,minute)
-    if not os.path.exists(save_path_mask): 
-        os.mkdir(save_path_mask)
-    
+    save_mask_dir = os.path.join(save_mask_dir,minute)
+    if not os.path.exists(save_mask_dir): 
+        os.mkdir(save_mask_dir)
     
     # Save Encrypted image and mask location info.
     # save_path = os.path.join(save_path_img,nowtime) # 路徑 './output/今天日期/現在時間.png'
-    cv2.imwrite(os.path.join(save_path_img , sec) + '.png',img) # 存加密圖片
+    save_img_path = os.path.join(save_img_dir , sec)
+    save_mask_path = os.path.join(save_mask_dir , sec)
+    
+    cv2.imwrite(save_img_path + '.jpg',img) # 存加密圖片  # .png 4x size
     # save_path = os.path.join(save_path_mask,nowtime) # 路徑 './mask_locs/今天日期/現在時間.npy'
-    np.save(os.path.join(save_path_mask , sec),mask_locs) # 存當下 mask location 資訊
+    np.save(save_mask_path,mask_locs) # 存當下 mask location 資訊
     
     return img # return Encrypted image
 
-def decrypt_image( encrypted_image , datetime ): # 取 datetime 部分還沒完成
+def decrypt_image( encrypted_image , datetime , T_R , T_G , T_B ): # 取 datetime : yyyy-mm-dd (GUI input?)
     # Read Encrypted Image
     img = encrypted_image
     
     # load mask location
     mask_locs = np.load(datetime + '.npy')
-    
-    # Path
-    # root_dir = './'
-    table_path = './Key_table'
-    Table_Name = ['Table_R.mat', 'Table_G.mat', 'Table_B.mat']
-    Alphabet = ['A','B','C']
-    Table_R,Table_G,Table_B = [],[],[]
-    
-    # load Table and Encrypt
-    Path = os.path.join(table_path,Table_Name[0]) # Table Name
-    Table_R = loadmat(Path) # load Table
-    Table_R = Table_R[Alphabet[0]] # Table list
-    Table_R = Table_R[1] # Take Encrypted pixel value
-    
-    Path = os.path.join(table_path,Table_Name[1]) # Table Name
-    Table_G = loadmat(Path) # load Table
-    Table_G = Table_G[Alphabet[1]] # Table list
-    Table_G = Table_G[1] # Take Encrypted pixel value
-    
-    Path = os.path.join(table_path,Table_Name[2]) # Table Name
-    Table_B = loadmat(Path) # load Table
-    Table_B = Table_B[Alphabet[2]] # Table list
-    Table_B = Table_B[1] # Take Encrypted pixel value
     
     # Decrypted image
     for mask_ind in range(len(mask_locs)):
@@ -151,7 +134,7 @@ def decrypt_image( encrypted_image , datetime ): # 取 datetime 部分還沒完�
         x,y = mask_locs[mask_ind][0],mask_locs[mask_ind][1]
         
         # 根據 Table 解密pixel
-        img[x][y][0], img[x][y][1], img[x][y][2] = Table_R.index(img[x][y][0]), Table_G.index(img[x][y][1]), Table_B.index(img[x][y][2])
+        img[x][y][0], img[x][y][1], img[x][y][2] = T_R.index(img[x][y][0]), T_G.index(img[x][y][1]), T_B.index(img[x][y][2])
     
     # End of for loop
 
@@ -161,15 +144,16 @@ def find_indices(array):
     indices = np.argwhere(array == 1)
     return indices
 
-def yolov7(video_path):
-    start_time = time.time()
+def yolov7( video_path ):
+    start_yolov7 = time.time()
     
     with open('data/hyp.scratch.mask.yaml') as f:
         hyp = yaml.load(f, Loader=yaml.FullLoader)
 
-    weigths = torch.load('./models/yolov7-mask.pt')
+    #weigths = torch.load( model_path )  # dont forget modify function parameter
+    weigths = torch.load( "./models/yolov7-mask.pt" )
     model = weigths['model']
-    model = model.half().to(device)
+    model = model.float().to(device)
     _ = model.eval()
 
     cap = cv2.VideoCapture(video_path)
@@ -212,7 +196,7 @@ def yolov7(video_path):
             image = transforms.ToTensor()(image)
             image = torch.tensor(np.array([image.numpy()]))
             image = image.to(device)
-            image = image.half()
+            image = image.float()
             
             # Get the start time.
             start_time = time.time()
@@ -259,6 +243,7 @@ def yolov7(video_path):
 
             all_indices_array = np.array([[0,0]])
             isFall = False
+            fall_bbox = []
             for one_mask, bbox, cls, conf in zip(pred_masks_np, nbboxes, pred_cls, pred_conf):
                 if ( conf < 0.25 or cls != 0 ):  #inference model with desire class
                     continue
@@ -276,6 +261,10 @@ def yolov7(video_path):
                 #print(bbox[0], bbox[1], bbox[2], bbox[3], type(bbox[0]))
                 if ( abs( bbox[2] - bbox[0] ) > abs( bbox[3] - bbox[1]) ):
                     isFall = True
+                    fall_bbox.append( bbox[0] )
+                    fall_bbox.append( bbox[1] )
+                    fall_bbox.append( bbox[2] )
+                    fall_bbox.append( bbox[3] )
 
             #out.write(pnimg)
 
@@ -284,13 +273,14 @@ def yolov7(video_path):
             
             # Encrypt and Decrypt
             all_indices_array = np.delete( all_indices_array, 0, 0 )
-            encrypt_img = encrypt_image( resized_original_img, all_indices_array )
+            encrypt_img = encrypt_image( resized_original_img, all_indices_array, tableRGB[0], tableRGB[1], tableRGB[2] )
             
             # Write the FPS on the current frame.
             cv2.putText(encrypt_img, f"FPS: {fps:.3f}", (15, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
             
             if isFall == True:
-                cv2.putText(encrypt_img, f"Fall", (15, 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2)
+                cv2.putText(encrypt_img, f"Fall", (15, 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+                cv2.rectangle(encrypt_img, (fall_bbox[0], fall_bbox[1]), (fall_bbox[2], fall_bbox[3]), (0, 0, 255), 2)
             else:
                 cv2.putText(encrypt_img, f"Safe", (15, 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
             
@@ -310,26 +300,39 @@ def yolov7(video_path):
     # Calculate and print the average FPS.
     avg_fps = total_fps / frame_count
     print(f"Average FPS: {avg_fps:.3f}")
-    print(f"Execution Time: {(time.time() - start_time):.3f} sec")
+    print(f"Execution Time: {(time.time() - start_yolov7):.3f}")
     
     return f"{save_name}_encrypt.mp4"
-
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-gr.Interface( fn = yolov7,
-              inputs = gr.Video( label = "Input Video" ),
-              outputs = gr.Video( label = "Encrypted Video" ) ).launch()
 """
 if __name__ == '__main__':
-    #video_path = './test/2.mp4'
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    
-    start_time = time.time()
-    
-    yolov7("./result/fall.mp4")
-    #yolov7("./result/4.mp4")  # RuntimeError: Sizes of tensors must match except in dimension 2. Got 47 and 48 (The offending index is 0)
 
-    print(f"Execution Time: {(time.time() - start_time):.3f}")
-"""
+    global tableRGB
+    tableRGB = loadTable()
+
+    gr.Interface( fn = yolov7,
+                  inputs = gr.Video( label = "Input Video" ),
+                  outputs = gr.Video( label = "Encrypted Video" ) ).launch()"""
+
+#python mask_video.py -d 0 -i fall.mp4 -m models/yolov7-mask.pt
+if __name__ == '__main__':
+    start_main = time.time()
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-d', '--device')
+    parser.add_argument('-i', '--input_path')
+    parser.add_argument('-m', '--model_path')
+    args = parser.parse_args()
+    
+    device = torch.device(f"cuda:{args.device}" if torch.cuda.is_available() else "cpu")
+    
+    global tableRGB
+    tableRGB = loadTable()
+    
+    yolov7( args.input_path )
+
+    print(f"Execution Time: {(time.time() - start_main):.3f}")
+
 
 
 
