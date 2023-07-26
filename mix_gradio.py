@@ -127,7 +127,7 @@ def find_indices(array):
     indices = np.argwhere(array == 1)
     return indices
 
-def yolov7( video_path ):
+def yolov7_video( video_path ):
     print( "\nStart\n" )
     
     start_yolov7 = time.time()
@@ -292,64 +292,178 @@ def yolov7( video_path ):
     
     print( "\nDone\n" )
     
-    return f"{save_name}_encrypt.mp4"
+    return f"{save_name}_encrypt.mp4"    
+    
+def yolov7_image( image_path ) :
+    start_time = time.time()
+
+    with open('data/hyp.scratch.mask.yaml') as f:
+        hyp = yaml.load(f, Loader=yaml.FullLoader)
+
+    #weigths = torch.load('yolov7-seg.pt')
+    weigths = torch.load('./models/yolov7-mask.pt')
+    model = weigths['model']
+    model = model.half().to(device)
+    _ = model.eval()
+    
+    #image = cv2.imread(image_path)
+    image = image_path
+    image = letterbox(image, 640, stride=64, auto=True)[0]
+    image_ = image.copy()
+    image = transforms.ToTensor()(image)
+    image = torch.tensor(np.array([image.numpy()]))
+    image = image.to(device)
+    image = image.half()
+    
+    output = model(image)
+    
+    inf_out, train_out, attn, mask_iou, bases, sem_output = output['test'], output['bbox_and_cls'], output['attn'], output['mask_iou'], output['bases'], output['sem']
+    bases = torch.cat([bases, sem_output], dim=1)
+    nb, _, height, width = image.shape
+    names = model.names
+    pooler_scale = model.pooler_scale
+    pooler = ROIPooler(output_size=hyp['mask_resolution'], scales=(pooler_scale,), sampling_ratio=1, pooler_type='ROIAlignV2', canonical_level=2)
+
+    output, output_mask, output_mask_score, output_ac, output_ab = non_max_suppression_mask_conf(inf_out, attn, bases, pooler, hyp, conf_thres=0.25, iou_thres=0.65, merge=False, mask_iou=None)
+
+    pred, pred_masks = output[0], output_mask[0]
+    base = bases[0]
+    bboxes = Boxes(pred[:, :4])
+    original_pred_masks = pred_masks.view(-1, hyp['mask_resolution'], hyp['mask_resolution'])
+    pred_masks = retry_if_cuda_oom(paste_masks_in_image)( original_pred_masks, bboxes, (height, width), threshold=0.5)
+    pred_masks_np = pred_masks.detach().cpu().numpy()
+    pred_cls = pred[:, 5].detach().cpu().numpy()
+    pred_conf = pred[:, 4].detach().cpu().numpy()
+
+    nimg = image[0].permute(1, 2, 0) * 255
+    nimg = nimg.cpu().numpy().astype(np.uint8)
+    #nimg = cv2.cvtColor(nimg, cv2.COLOR_RGB2BGR)  # why change color?
+
+    nbboxes = bboxes.tensor.detach().cpu().numpy().astype(int)
+
+    pnimg = nimg.copy()
+    resized_original_img = nimg.copy()
+    #cv2.imwrite( "one_person_resized.jpg", resized_original_img )  # save original resized photo
+
+    all_indices_array = np.array([[0,0]])
+    isFall = False
+    fall_bbox = []
+    for one_mask, bbox, cls, conf in zip(pred_masks_np, nbboxes, pred_cls, pred_conf):
+        if ( conf < 0.25 or cls != 0 ):  #inference model with desire class
+            continue
+            
+        indices = find_indices( one_mask )
+        indices_array = np.array(indices)  # collect all numpy array of person mask index
+        
+        # Concatenate the arrays along the rows
+        all_indices_array = np.concatenate((all_indices_array, indices_array), axis=0) 
+
+        #color = [np.random.randint(255), np.random.randint(255), np.random.randint(255)]
+        color = [0, 0, 0]  # black
+
+        #pnimg[one_mask] = pnimg[one_mask] * 0.5 + np.array(color, dtype=np.uint8) * 0.5
+        pnimg[one_mask] = np.array(color, dtype=np.uint8)
+        
+        #pnimg = cv2.rectangle(pnimg, (bbox[0], bbox[1]), (bbox[2], bbox[3]), color, 2)
+        
+        # safe or fall down
+        #print(bbox[0], bbox[1], bbox[2], bbox[3], type(bbox[0]))
+        if ( abs( bbox[2] - bbox[0] ) > abs( bbox[3] - bbox[1]) ):
+            isFall = True
+            fall_bbox.append( bbox[0] )
+            fall_bbox.append( bbox[1] )
+            fall_bbox.append( bbox[2] )
+            fall_bbox.append( bbox[3] )
+
+        #label = '%s %.3f' % (names[int(cls)], conf)
+        #t_size = cv2.getTextSize(label, 0, fontScale=0.5, thickness=1)[0]
+        #c2 = bbox[0] + t_size[0], bbox[1] - t_size[1] - 3
+        #pnimg = cv2.rectangle(pnimg, (bbox[0], bbox[1]), c2, color, -1, cv2.LINE_AA)  # filled
+        #pnimg = cv2.putText(pnimg, label, (bbox[0], bbox[1] - 2), 0, 0.5, [255, 255, 255], thickness=1, lineType=cv2.LINE_AA)
+        
+    all_indices_array = np.delete( all_indices_array, 0, 0 )
+    encrypt_img = encrypt_image( resized_original_img, all_indices_array, tableRGB[0], tableRGB[1], tableRGB[2] )
+    
+    if isFall == True:
+        cv2.putText(encrypt_img, f"Fall", (15, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2)
+        cv2.rectangle(encrypt_img, (fall_bbox[0], fall_bbox[1]), (fall_bbox[2], fall_bbox[3]), (255, 0, 0), 2)
+    else:
+        cv2.putText(encrypt_img, f"Safe", (15, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+
+    print( f"Execution Time: {time.time() - start_time:.3f}" )
+    return encrypt_img  
+
+def clear():
+        return None, None
 
 if __name__ == '__main__':
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
     global tableRGB
-    tableRGB = loadTable()
-
-    gr.Interface( fn = yolov7,
-                  inputs = "video",
-                  outputs = "playable_video",
-                  examples = ["./result/fall.mp4"], 
-                  cache_examples = True ).launch()
-"""
-#python mask_video.py -d 0 -i ./result/2.mp4 -m ./models/yolov7-mask.pt
-if __name__ == '__main__':
-    start_main = time.time()
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument('-d', '--device')
-    parser.add_argument('-i', '--input_path')
-    parser.add_argument('-m', '--model_path')
-    args = parser.parse_args()
+    tableRGB = loadTable() 
+   
+    css = "h1 { text-align: center } .about { text-align: justify; padding-left: 10%; padding-right: 10%; }"
     
-    device = torch.device(f"cuda:{args.device}" if torch.cuda.is_available() else "cpu")
+    image_imput = gr.Image(label="Input", value="result/fall.jpg", type='pil')
+    image_output = gr.Image(label="Output", interactive=False, type='pil')
+    video_input = gr.Video(label="Input", value="result/fall.mp4", type='pil')
+    video_output = gr.Video(label="Output", interactive=False, type='pil')
+       
+    with gr.Blocks( css = css, title = 'Encrypt Image and Video' ) as demo :
+        with gr.Tab( "Encrypt Image" ) :
+            # Images
+            with gr.Row(variant="panel"):
+                with gr.Column(scale=1):
+                    image_imput.render()
+
+                with gr.Column(scale=1):
+                    image_output.render()
+                    
+            # Submit & Clear
+            with gr.Row():
+                with gr.Column():
+                    encrypt_image = gr.Button( "Encrypt Image", variant='primary' )
+                    clear_image = gr.Button("Clear", variant="secondary")
+            
+        encrypt_image.click( fn = yolov7_image,
+                                  inputs = image_imput,
+                                  outputs = video_output )
+
+        clear_image.click(clear, outputs=[image_imput, image_output])
+                          
+        with gr.Tab( "Encrypt Video" ) :
+            # Images
+            with gr.Row(variant="panel"):
+                with gr.Column(scale=1):
+                    video_input.render()
+
+                with gr.Column(scale=1):
+                    video_output.render()
+                    
+            # Submit & Clear
+            with gr.Row():
+                with gr.Column():
+                    encrypt_video = gr.Button( "Encrypt Video", variant='primary' )
+                    clear_video = gr.Button("Clear", variant="secondary")
+              
+        encrypt_video.click( fn = yolov7_video,
+                                 inputs = video_input,
+                                 outputs = video_output )
+        clear_video.click(clear, outputs=[video_input, video_output])
+        
+    demo.launch()
     
-    global tableRGB
-    tableRGB = loadTable()
     
-    yolov7( args.input_path, args.model_path )
-
-    print(f"Execution Time: {(time.time() - start_main):.3f}")"""
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    

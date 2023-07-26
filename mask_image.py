@@ -27,6 +27,8 @@ import time
 
 import gradio as gr
 
+import argparse
+
 def loadTable():
     table_path = './Key_table'
     Table_R,Table_G,Table_B = [],[],[]
@@ -222,23 +224,6 @@ def yolov7( image_path ) :
     else:
         cv2.putText(encrypt_img, f"Safe", (15, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
 
-    #decrypt_img = decrypt_image( encrypt_img, "" )
-    #cv2.imshow("decrypt",img)
-    #cv2.waitKey(0)
-
-    #print(type(pnimg[one_mask]))
-    #print(pnimg[one_mask])
-
-    #cv2.imwrite( "one_person_instance_seg.jpg", pnimg )
-    #cv2.imshow("image",image_)
-    #cv2.waitKey(0)
-    #cv2.imshow("pnimg",pnimg)
-    #cv2.waitKey(0)
-    #image3 = cv2.subtract(image_, pnimg)
-    #cv2.imshow("image3",image3)
-    #cv2.waitKey(0)
-    #cv2.imwrite( "one_person_body.jpg", image3 )
-
     print( f"Execution Time: {time.time() - start_time:.3f}" )
     return encrypt_img
 
@@ -250,7 +235,9 @@ if __name__ == '__main__':
 
     gr.Interface( fn = yolov7,
                   inputs = "image",
-                  outputs = "image" ).launch()
+                  outputs = "image",
+                  examples=["./result/fall.jpg"],
+                  cache_examples = True ).launch()
 
 
 

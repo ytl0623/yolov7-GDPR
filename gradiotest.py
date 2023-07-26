@@ -1,6 +1,8 @@
 import cv2
+import os
 import gradio as gr
 
+"""
 def video_to_gray(input_video):
     # Read the input video
     cap = cv2.VideoCapture(input_video)
@@ -38,4 +40,39 @@ interface = gr.Interface(fn=video_to_gray, inputs=inputs, outputs=outputs)
 
 # Launch the interface on a public web address
 interface.launch()
+"""
+"""
+def video_identity(video):
+    return video
 
+demo = gr.Interface(video_identity, 
+                    gr.Video(), 
+                    "playable_video", 
+                    examples=[
+                        os.path.join(os.path.dirname(__file__), 
+                                     "./result/fall.mp4")], 
+                    cache_examples=True)
+
+if __name__ == "__main__":
+    demo.launch()"""
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
