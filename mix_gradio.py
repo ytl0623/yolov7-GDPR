@@ -26,6 +26,11 @@ import gradio as gr
 
 import argparse
 
+from tqdm import tqdm
+from glob import glob
+
+from function import encrypt_image, decrypt_image, loadTable, find_indices, decrypt_video
+
 def loadTable():
     table_path = './Key_table'
     Table_R,Table_G,Table_B = [],[],[]

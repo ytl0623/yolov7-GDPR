@@ -1,60 +1,15 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Tue Jul 11 15:40:50 2023
-
-@author: Allen Yeh
-"""
-
-import matplotlib.pyplot as plt
-import torch
-import cv2
-import yaml
-from torchvision import transforms
 import numpy as np
-
-from utils.datasets import letterbox
-from utils.general import non_max_suppression_mask_conf
-
-from detectron2.modeling.poolers import ROIPooler
-from detectron2.structures import Boxes
-from detectron2.utils.memory import retry_if_cuda_oom
-from detectron2.layers import paste_masks_in_image
-
-import warnings
-warnings.filterwarnings("ignore")
-
-import datetime
+import cv2
 import os
 from mat4py import loadmat
+import datetime
+from matplotlib import pyplot as plt
 
-import time
-
-import gradio as gr
-
-from tqdm import tqdm
 from glob import glob
 
-'''
-1. encrypt_image() function
-
-Input:
-# image : M*N*3 RGB image
-# Mask_locs : N*2 numpy array
-
-Output:
-# image : M*N*3 RGB image 加密完成的影像
-
-------------------------------------------
-
-2. decrypt_image() function
-
-Input:
-# image : M*N*3 RGB image
-# datetime : 想要解密的時間
-
-Output:
-# image : M*N*3 RGB image 解密完成的影像
-'''
+def find_indices(array):
+    indices = np.argwhere(array == 1)
+    return indices
 
 def loadTable():
     table_path = './Key_table'
@@ -67,16 +22,11 @@ def loadTable():
     Table_R = Table_R[1] # Take Encrypted pixel value
     
     return np.array(Table_R)
-    
-def find_indices(array):
-    indices = np.argwhere(array == 1)
-    return indices
 
-def encrypt_image( image, mask_locs, map_table):
+def encrypt_image( image , mask_locs , map_table):
     '''
-    加密影像
-    parameter : image : 要加密的影像 ; mask_locs : 需要加密的pixel位置 ; T_R,T_G,T_B : 要使用的加密對照表
-    Output : img : 加密後的影像
+    intput : image : 要加密的影像 ; mask_locs : 需要加密的pixel位置 ; T_R,T_G,T_B : 要使用的加密對照表
+    output : img : 加密後的影像
     '''
     
     # dateTime
@@ -86,10 +36,10 @@ def encrypt_image( image, mask_locs, map_table):
     hour, minute, sec = nowtime[0], nowtime[1], nowtime[2]
     
     # read image
-    img = image
+    img = np.copy(image)
     
     # Saving path
-    save_img_dir = os.path.join('./output/',str(today))
+    save_img_dir = os.path.join('./encrypted_output/',str(today))
     save_mask_dir = os.path.join('./mask_locs/',str(today))
     
     
@@ -126,51 +76,46 @@ def encrypt_image( image, mask_locs, map_table):
     if not os.path.exists(save_mask_dir): 
         os.mkdir(save_mask_dir)
     
-    
-    
     # Save Encrypted image and mask location info.
     save_img_path = os.path.join(save_img_dir , sec) # 路徑 './output/今天日期/hour/minute/second.jpg'
     save_mask_path = os.path.join(save_mask_dir , sec) # 路徑 './output/今天日期/hour/minute/second.npy'
     
     # 存加密圖片
-    cv2.imwrite( save_img_path + '.jpg' , img)  # 用png會太大
+    cv2.imwrite( save_img_path + '.png' , img)  # 用png會太大
     
     # 存當下 mask location 資訊
     np.save(save_mask_path,mask_locs)  # 路徑 './output/今天日期/hour/minute/second.npy'
     
     return img # return Encrypted image
 
-
-def decrypt_image(datetime , map_table): # 取 datetime : yyyy-mm-dd (GUI input?)
-    # # Read Encrypted Image
-    # img = encrypted_image
-    
+def decrypt_image(datetime , map_table):    
     '''
-    param : datetime( ./output/yyyy-mm-dd/hr/min/ ) path
-    return : decrypted image ( numpy array M*N*3 )
+    intput : datetime( ./encrypted_output/yyyy-mm-dd/hr/min/ ) path
+    output : decrypted image ( numpy array M*N*3 )
     '''
     
     # Convert map_table to list type
     map_table = list(map_table)
     
     # Get all encrypted image in designated folder
-    dir_list = glob(datetime+"*")
+    dir_list = glob(datetime + '/*.png')
     
     img = cv2.imread(dir_list[0])
     sz = img.shape
     decrypt_image = np.empty((sz[0],sz[1],sz[2]), dtype = int)
     
     for img_slice in dir_list:
+        #print(img_slice)
+        
         # image path and mask_locs path
         image_path = img_slice
-        locs_path = image_path.replace('output','mask_locs')
-        locs_path = locs_path.replace('jpg','npy')
+        locs_path = img_slice.replace('png','npy').replace('encrypted_output','mask_locs')
         
         # save decrypt image path
-        save_path = datetime.replace('output','decrypted_output')
-        out_image = image_path.replace('output','decrypted_output')
+        save_path = datetime.replace('encrypted_output', 'decrypted_output') # ./output/yyyy-mm-dd/hr/min/
+        save_image_path = img_slice.replace('encrypted_output', 'decrypted_output')
         
-        if os.path.exists(save_path):
+        if not os.path.exists(save_path):
             os.makedirs(save_path)
         
         # read image
@@ -185,12 +130,69 @@ def decrypt_image(datetime , map_table): # 取 datetime : yyyy-mm-dd (GUI input?
             
             # 根據 Table 解密pixel
             decrypt_image[x, y] = [map_table.index(decrypt_image[x][y][0]), map_table.index(decrypt_image[x][y][1]), map_table.index(decrypt_image[x][y][2])]
-            
         # End of for loop
         
-        cv2.imwrite(out_image, decrypt_image)
+        cv2.imwrite(save_image_path, decrypt_image)
+        
         return decrypt_image
 
-    return decrypt_image # return decrypted image
+    return None # return decrypted image
 
+def decrypt_video(datetime , map_table):    
+    '''
+    intput : datetime( ./encrypted_output/yyyy-mm-dd/hr/min/ ) path
+    output : decrypted image ( numpy array M*N*3 )
+    '''
+    
+    # Convert map_table to list type
+    map_table = list(map_table)
+    
+    # Get all encrypted image in designated folder
+    dir_list = glob(datetime + '/*.png')
+    dir_list = sorted(dir_list, key=lambda name: int(name[36:-4]))
+    #print(dir_list)
+    
+    img = cv2.imread(dir_list[0])
+    sz = img.shape
+    decrypt_image = np.empty((sz[0],sz[1],sz[2]), dtype = int)
+    
+    save_name = datetime.replace( "encrypted_output", "" ).replace( ".", "").replace( "/", "" )  # "yyyy-mm-ddhrmin "
+    
+    # Define codec and create VideoWriter object.
+    out = cv2.VideoWriter(f"{save_name}_decrypt.mp4",
+                          cv2.VideoWriter_fourcc(*'mp4v'), 15,
+                          (sz[1], sz[0]))
+    
+    for img_slice in dir_list:
+        print(img_slice)
+        
+        # image path and mask_locs path
+        image_path = img_slice
+        locs_path = img_slice.replace('png','npy').replace('encrypted_output','mask_locs')
+        
+        # save decrypt image path
+        save_path = datetime.replace('encrypted_output', 'decrypted_output') # ./output/yyyy-mm-dd/hr/min/
+        save_image_path = img_slice.replace('encrypted_output', 'decrypted_output')
+        
+        if not os.path.exists(save_path):
+            os.makedirs(save_path)
+        
+        # read image
+        encrypted_img, mask_locs = cv2.imread(image_path), np.load(locs_path)
+        decrypt_image = np.copy(encrypted_img)
+        
+        # Decrypting image
+        for mask_ind in range(len(mask_locs)):
+            
+            # 第 mask_ind 個的mask location
+            x , y = mask_locs[mask_ind][0] , mask_locs[mask_ind][1]
+            
+            # 根據 Table 解密pixel
+            decrypt_image[x, y] = [map_table.index(decrypt_image[x][y][0]), map_table.index(decrypt_image[x][y][1]), map_table.index(decrypt_image[x][y][2])]
+        # End of for loop
+        
+        cv2.imwrite(save_image_path, decrypt_image)
+        
+        out.write( decrypt_image )
 
+    return f"{save_name}_decrypt.mp4"
