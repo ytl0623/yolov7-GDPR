@@ -8,3 +8,4 @@ https://github.com/ytl0623/yolov7-GDPR/assets/55120101/9888b066-4435-402a-80a7-3
 ## References
 - https://github.com/WongKinYiu/yolov7
 - https://github.com/RizwanMunawar/yolov7-segmentation
+- https://www.linkedin.com/posts/muhammadrizwanmunawar_computervision-objectdetection-deeplearning-activity-7082206466652184576-FGdI?utm_source=share&utm_medium=member_desktop
