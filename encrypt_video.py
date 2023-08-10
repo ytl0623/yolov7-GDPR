@@ -31,6 +31,10 @@ from glob import glob
 
 from function import encrypt_image, decrypt_image, loadTable, find_indices, decrypt_video
 
+from send_email import send_email
+
+from multiprocessing import Process
+
 def encrypt( video_path ):
     print( "\nStart\n" )
     start_encrypt = time.time()
@@ -165,6 +169,8 @@ def encrypt( video_path ):
             cv2.putText(encrypt_img, f"FPS: {fps:.3f}", (15, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
             
             if isFall == True:
+                p1 = Process( target = send_email )
+                p1.start()
                 cv2.putText(encrypt_img, f"Fall", (15, 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
                 i = 0
                 while i < len(fall_bbox):

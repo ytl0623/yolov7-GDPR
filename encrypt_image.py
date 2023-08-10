@@ -30,6 +30,10 @@ from tqdm import tqdm
 from glob import glob
 
 from function import encrypt_image, decrypt_image, loadTable, find_indices, decrypt_video
+
+from send_email import send_email
+
+from multiprocessing import Process
     
 def encrypt( image_path ) :
     print( "\nStart\n" )
@@ -114,6 +118,8 @@ def encrypt( image_path ) :
     encrypt_img = encrypt_image( resized_original_img, all_indices_array, tableRGB )
     
     if isFall == True:
+        p1 = Process( target = send_email )
+        p1.start()
         cv2.putText(encrypt_img, f"Fall", (15, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2)
         
         i = 0
