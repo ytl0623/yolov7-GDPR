@@ -1,6 +1,9 @@
 ## Instance Segmentation + Encryption/Decryption + Fall Detection
 
+## Demo Video
+[![Youtube Video Demo](https://img.youtube.com/vi/oDkjANVkFOM/0.jpg)](https://youtu.be/oDkjANVkFOM)
 
+## Example
 https://github.com/ytl0623/yolov7-GDPR/assets/55120101/9888b066-4435-402a-80a7-3d1dc4874141
 
 
