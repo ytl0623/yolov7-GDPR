@@ -7,6 +7,10 @@ from matplotlib import pyplot as plt
 
 from glob import glob
 
+from natsort import natsorted
+
+import time
+
 def find_indices(array):
     indices = np.argwhere(array == 1)
     return indices
@@ -149,7 +153,8 @@ def decrypt_video(datetime , map_table):
     
     # Get all encrypted image in designated folder
     dir_list = glob(datetime + '/*.png')
-    dir_list = sorted(dir_list, key=lambda name: int(name[36:-4]))
+    #dir_list = sorted(dir_list, key=lambda name: int(name[36:-4]))
+    dir_list = natsorted( dir_list )
     #print(dir_list)
     
     img = cv2.imread(dir_list[0])
@@ -164,7 +169,8 @@ def decrypt_video(datetime , map_table):
                           (sz[1], sz[0]))
     
     for img_slice in dir_list:
-        print(img_slice)
+        start_image = time.time()
+        print(img_slice, end = "")
         
         # image path and mask_locs path
         image_path = img_slice
@@ -194,5 +200,7 @@ def decrypt_video(datetime , map_table):
         cv2.imwrite(save_image_path, decrypt_image)
         
         out.write( decrypt_image )
+        
+        print( f' {time.time() - start_image:.3f} sec/image')
 
     return f"{save_name}_decrypt.mp4"
