@@ -1,4 +1,4 @@
-## A public surveillance camera system capable of privacy encryption and protection
+# A public surveillance camera system capable of privacy encryption and protection
 
 ## Demo Video
 [![Youtube Video Demo](https://img.youtube.com/vi/oDkjANVkFOM/0.jpg)](https://youtu.be/oDkjANVkFOM)
